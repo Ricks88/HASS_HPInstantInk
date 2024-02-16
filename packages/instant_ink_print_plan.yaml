@@ -1,0 +1,418 @@
+---
+#
+# /config/integrations/custom_packages/hp_printer/instant_ink_print_plan.yaml
+#
+
+##################################################################################################################
+# Inputs
+##################################################################################################################
+
+# Inputs for the HP Ink Print Plan
+
+input_number:
+
+  # The total number of pages that had been printed at the start of this period of the printing plan
+  # Set by an automation
+  hp_printer_pages_printed_at_month_start:
+    name: "HP Printer - Pages Printed at month start"
+    min: 0
+    max: 50000
+    step: 1
+    icon: mdi:printer
+    mode: box
+
+  # The current monthly allowance number of pages
+  # SET THIS ONCE FOR THE INAUGURAL RUN, and after then it is set by an automation
+  hp_printer_pages_monthly_available:
+    name: "HP Printer - Monthly Pages Available in Plan"
+    min: 15
+    max: 500
+    step: 1
+    icon: mdi:printer
+    mode: box
+
+  # The number of pages that remain of the rollover allowance for this month
+  # SET THIS ONCE FOR THE INAUGURAL RUN, and after then it is set by an automation
+  hp_printer_pages_rollover_available:
+    name: "HP Printer - Available Rollover Pages"
+    min: 0
+    max: 600
+    step: 1
+    icon: mdi:printer
+    mode: box
+
+  # The maximum number of rollover pages allowed.
+  # SET THIS ACCORDING TO YOUR PLAN
+  hp_printer_pages_rollover_monthly_max:
+    name: "HP Printer - Monthly Maximum Rollover Pages"
+    min: 0
+    max: 600
+    step: 1
+    icon: mdi:printer
+    mode: box
+
+  # The number of pages in each overprint block, when
+  # the Monthly Allowance plus Rollover are exceeded
+  # SET THIS ACCORDING TO YOUR PLAN
+  hp_printer_pages_overprint_block_size:
+    name: "HP Printer - Over Print Block Size"
+    min: 0
+    max: 100
+    step: 1
+    icon: mdi:printer
+    mode: box
+
+  # The cost of each overprint block, in £
+  # SET THIS ACCORDING TO YOUR PLAN
+  hp_printer_pages_overprint_block_cost:
+    name: "HP Printer - Over Print Block Cost"
+    min: 0
+    max: 50
+    step: 0.01
+    unit_of_measurement: "EUR"
+    icon: mdi:currency-eur
+    mode: box
+
+
+  # The number of total available pages remaining to trigger a notification
+  hp_printer_pages_total_remaining_notification:
+    name: "HP Printer - Pages Notification"
+    min: 1
+    max: 1000
+    step: 1
+    icon: mdi:printer
+    mode: box
+
+
+
+##################################################################################################################
+# Input DateTime
+##################################################################################################################
+
+input_datetime:
+
+# The start date of this period of the print plan
+# SET THIS ONCE FOR THE INAUGURAL RUN, and after then it is set by an automation
+  hp_printer_this_period_start_date:
+    name: "HP Printer - This Period Start Date"
+    has_date: true
+    has_time: false
+    icon: mdi:calendar
+
+
+
+##################################################################################################################
+# Input Select
+##################################################################################################################
+
+input_select:
+
+# SET THIS ACCORDING TO YOUR PLAN
+  hp_printer_print_plan:
+    name: "HP Printer - Print Plan"
+    options:
+      - Free
+      - Paid
+    initial: Paid
+    icon: mdi:printer
+
+
+##################################################################################################################
+# Template Sensor
+##################################################################################################################
+
+template:
+
+  # Energie DSMR Readings and Prices
+
+  - sensor: 
+
+      # The number of standaard available pages remaining for this period
+      # Calculated when each page is printed, and at the start of each new Instant Ink period
+      - name: "HP Printer - Pages Available Remaining"
+        unique_id: "hp_printer_pages_available_remaining"
+        state: >
+          {% if states('input_datetime.hp_printer_this_period_start_date') %}
+            {% if states('input_number.hp_printer_pages_printed_at_month_start')|int + states('input_number.hp_printer_pages_monthly_available')|int - states('sensor.hp_printer_pages_total_printed')|int >= 0 %}
+              {{ states('input_number.hp_printer_pages_printed_at_month_start')|int + states('input_number.hp_printer_pages_monthly_available')|int - states('sensor.hp_printer_pages_total_printed')|int }}
+            {% else %}
+              0
+            {% endif %}
+          {% endif %}
+        availability: "{{ has_value('input_datetime.hp_printer_this_period_start_date') and has_value('input_number.hp_printer_pages_printed_at_month_start') and 
+        has_value('input_number.hp_printer_pages_monthly_available') and has_value('sensor.hp_printer_pages_total_printed') }}"
+
+      # The number of rollover pages remaining for this period.
+      # Calculated when each page is printed, when the Rollover Pages reset, and at the start of each new Instant Ink period
+      - name: "HP Printer - Pages Rollover Remaining"
+        unique_id: "hp_printer_pages_rollover_remaining"
+        state: >
+          {% if states('input_datetime.hp_printer_this_period_start_date') %}
+            {% if states('input_number.hp_printer_pages_printed_at_month_start')|int + states('input_number.hp_printer_pages_monthly_available')|int - states('sensor.hp_printer_pages_total_printed')|int < 0 and states('input_number.hp_printer_pages_printed_at_month_start')|int + states('input_number.hp_printer_pages_monthly_available')|int + states('input_number.hp_printer_pages_rollover_available')|int - states('sensor.hp_printer_pages_total_printed')|int >= 0 %}
+              {{ states('input_number.hp_printer_pages_printed_at_month_start')|int + states('input_number.hp_printer_pages_monthly_available')|int + states('input_number.hp_printer_pages_rollover_available')|int - states('sensor.hp_printer_pages_total_printed')|int }}
+            {% elif states('input_number.hp_printer_pages_printed_at_month_start')|int + states('input_number.hp_printer_pages_monthly_available')|int - states('sensor.hp_printer_pages_total_printed')|int < 0 and states('input_number.hp_printer_pages_printed_at_month_start')|int + states('input_number.hp_printer_pages_monthly_available')|int + states('input_number.hp_printer_pages_rollover_available')|int - states('sensor.hp_printer_pages_total_printed')|int < 0 %}
+              0
+            {% else %}
+              {{ states('input_number.hp_printer_pages_rollover_available')|int }}
+            {% endif %}
+          {% endif %}
+        availability: "{{ has_value('input_datetime.hp_printer_this_period_start_date') and has_value('input_number.hp_printer_pages_printed_at_month_start') and 
+        has_value('input_number.hp_printer_pages_monthly_available') and has_value('sensor.hp_printer_pages_total_printed') and 
+        has_value ('input_number.hp_printer_pages_rollover_available') }}"
+
+      # Total number of bundled plus rollover pages remainig for this period
+      - name: "HP Printer - Pages Total Remaining"
+        unique_id: "hp_printer_pages_total_remaining"
+        state: "{{ states('sensor.hp_printer_pages_available_remaining')|int + states('sensor.hp_printer_pages_rollover_remaining')|int }}"
+        availability: "{{ has_value('sensor.hp_printer_pages_available_remaining') and has_value('sensor.hp_printer_pages_rollover_remaining') }}"
+
+      # The number pages printed over and above the Monthly Available plus the Rollover Available
+      # Calculated when each page is printed, and at the start of each new Instant Ink period
+      - name: "HP Printer - Pages Overprint"
+        unique_id: "hp_printer_pages_overprint"
+        state: >
+          {% if states('input_datetime.hp_printer_this_period_start_date') %}
+            {% if states('input_number.hp_printer_pages_printed_at_month_start')|int + states('input_number.hp_printer_pages_monthly_available')|int + states('input_number.hp_printer_pages_rollover_available')|int < states('sensor.hp_printer_pages_total_printed')|int %}
+              {{ states('sensor.hp_printer_pages_total_printed')|int - states('input_number.hp_printer_pages_rollover_available')|int - states('input_number.hp_printer_pages_monthly_available')|int - states('input_number.hp_printer_pages_printed_at_month_start')|int }}
+            {% else %}
+              0
+            {% endif %}    
+          {% endif %}
+        availability: "{{ has_value('input_datetime.hp_printer_this_period_start_date') and has_value ('input_number.hp_printer_pages_printed_at_month_start') and
+        has_value('input_number.hp_printer_pages_monthly_available') and has_value('input_number.hp_printer_pages_rollover_available') and has_value('sensor.hp_printer_pages_total_printed') }}"
+
+      # The cost so far of the pages that have been printed over the standard Available plus Rollover Available
+      # Calculated when each page is printed, and at the start of each new Instant Ink period
+      # CHANGE THE CURRENCY CODE AS APPROPRIATE
+      - name: "HP Printer - Pages Overprint Cost"
+        unique_id: "hp_printer_pages_overprint_cost"
+        unit_of_measurement: "EUR"
+        device_class: monetary
+        state_class: total
+        state: >
+          {% if states('sensor.hp_printer_pages_total_printed') or states('input_datetime.hp_printer_this_period_start_date') %}
+            {% if states('sensor.hp_printer_pages_overprint')|int == 0 %}
+              0
+            {% elif states('sensor.hp_printer_pages_overprint')|int > 0 and ( (states('sensor.hp_printer_pages_overprint')|int - 1) % states('input_number.hp_printer_pages_overprint_block_size')|int == 0 ) %}
+              {{ (1 + ((states('sensor.hp_printer_pages_overprint')|int - 1) / states('input_number.hp_printer_pages_overprint_block_size')|int)) | multiply( states('input_number.hp_printer_pages_overprint_block_cost')|int)|int  }}
+            {% else %}
+              {{ (1 + ((states('sensor.hp_printer_pages_overprint')|int - 1) / states('input_number.hp_printer_pages_overprint_block_size')|int)) | multiply( states('input_number.hp_printer_pages_overprint_block_cost')|int)|int  }}
+            {% endif %}    
+          {% endif %}
+        availability: "{{ has_value('sensor.hp_printer_pages_total_printed') and has_value('input_datetime.hp_printer_this_period_start_date') and
+        has_value('sensor.hp_printer_pages_overprint') and has_value('input_number.hp_printer_pages_overprint_block_size') and has_value ('input_number.hp_printer_pages_overprint_block_cost') }}"
+
+      # The number of pages remaining for this month in the chargeable Over Printed area
+      - name: "HP Printer - Pages Overprint Remaining"
+        unique_id: "hp_printer_pages_overprint_remaining"
+        state: >
+          {% if states('sensor.hp_printer_pages_overprint')|int == 0 or (states('sensor.hp_printer_pages_overprint')|int % states('input_number.hp_printer_pages_overprint_block_size')|int == 0) %}
+            0
+          {% else %}
+            {{ states('input_number.hp_printer_pages_overprint_block_size')|int - (states('sensor.hp_printer_pages_overprint')|int % states('input_number.hp_printer_pages_overprint_block_size')|int) }}
+          {% endif %}
+        availability: "{{ has_value('sensor.hp_printer_pages_overprint') and has_value('input_number.hp_printer_pages_overprint_block_size') }}"
+
+      # Next Renewal Date
+      # WILL NOT WORK FOR 29th, 30th, 31st OF THE MONTH
+      # The number of pages remaining for this month in the chargeable Over Printed area
+      - name: "HP Printer - Next Renewal Date"
+        unique_id: "hp_printer_next_renewal_date"
+        state: >
+          {% if (states('input_datetime.hp_printer_this_period_start_date').split("-")[1]|int + 1 > 12) %}
+            {{ (states('input_datetime.hp_printer_this_period_start_date').split("-")[0]|int + 1)|string + "-01-" + states('input_datetime.hp_printer_this_period_start_date').split("-")[2] }}
+          {% else %}
+            {{ states('input_datetime.hp_printer_this_period_start_date').split("-")[0]|int|string + "-" +  ('%02d' % (states('input_datetime.hp_printer_this_period_start_date').split("-")[1]|int + 1)) + "-" + states('input_datetime.hp_printer_this_period_start_date').split("-")[2] }}
+          {% endif %}
+        availability: "{{ has_value('input_datetime.hp_printer_this_period_start_date') }}"
+
+      # Used to track days remaining of HP Ink Printer Pages period
+      # Needs to have the date sensors installed as per: https://www.home-assistant.io/integrations
+      # Use of sensor.date ought to force a daily update, according to https://www.home-assistant.io/integrations/template/
+      - name: "HP Printer - This Period Days Remaining"
+        unique_id: "hp_printer_this_period_days_remaining"
+        state: "{% set dt = states('sensor.hp_printer_next_renewal_date') | as_datetime or today_at() %} {{ (dt | as_local - today_at()).days }}"
+        availability: "{{ has_value('sensor.hp_printer_next_renewal_date') }}"
+      
+   
+
+      # Makes use of HP Printer integration: https://github.com/elad-bar/ha-hpprinter
+      # Convert the total pages printed from sensor.hp_printer_printer to a useable value
+      - name: "HP Printer - Pages Total Printed"
+        unique_id: "hp_printer_pages_total_printed"
+        state: "{{ states('sensor.hp_printer_printer')|int }}"
+        availability: "{{ has_value('sensor.hp_printer_printer') }}"
+
+
+
+##
+## ONLY if you can not use the HP Printer integration: https://github.com/elad-bar/ha-hpprinter
+##
+## Updated to UI or use MultiScrape (Install via HACS)
+##
+##multiscrape:
+##  - name: "HP Printer Scraper"
+##    resource: "https://hp-officejet.local/DevMgmt/ProductUsageDyn.xml"
+##    scan_interval: 60
+##    verify_ssl: false
+##    sensor:
+##      - unique_id: hp_printer_pages_total_printed
+##        name: "HP OfficeJet 8022 Total Pages Printed"
+##        select: 'dd\:TotalImpressions[PEID="5082"]'
+##        value_template: >-
+##          {% if value == "" %}
+##            0
+##         {% else %}
+##           {{ value }}
+##         {% endif %}
+
+
+##################################################################################################################
+# Binary Sensors
+##################################################################################################################
+
+## ONLY if you can not use the HP Printer integration: https://github.com/elad-bar/ha-hpprinter
+## Set via UI ##
+## Ping the Printer ##
+##binary_sensor:
+##  - platform: ping
+##    host: 192.168.20.21
+##    name: "hp-officejet"
+##    count: 2
+##    scan_interval: 30
+##
+
+
+
+##################################################################################################################
+# Automations
+##################################################################################################################
+
+automation:
+
+  # Reset Pages at new Period
+  - id: "printer_page_reset"
+    alias: "Printer - Page Reset"
+    description: >-
+      Sets: - Total number of pages printed at the start of the period -
+      Start Date of this period (to store a date to calculate the next one) - Maximum
+      Rollover Allowance value for this month - Rollover Remaining to new Maximum Rollover
+      Allowance value for this month - Rollover from overprint pages.
+
+    trigger:
+      - at: "00:00:00"
+        platform: time
+
+    condition:
+      - condition: template
+        value_template: "{{ now().day|int == states('input_datetime.hp_printer_this_period_start_date')[-2:]|int }}"
+
+    action:
+      - service: input_number.set_value
+        entity_id: input_number.hp_printer_pages_rollover_available
+        data_template:
+          value:
+            "{% if is_state('input_select.hp_printer_print_plan' , 'Free') %}
+            {## -=-=-= Free Plans accrue rollovers only from the OverPrint counter =-=-=- ##}
+            {% if states('sensor.hp_printer_pages_overprint_remaining')|int > 0 %}
+            {## -=-=-= If the OverPrint is in use, both the standard and rollover pages have been exhausted =-=-=- ##}
+            {{ states('sensor.hp_printer_pages_overprint_remaining')|int }}
+            {% else %}
+            {## -=-=-= If the OverPrint is not in use, then however many rollover pages that remain get carried over =-=-=- ##}
+            {{ states('sensor.hp_printer_pages_rollover_remaining')|int }}
+            {% endif %}
+            {% else %}
+            {## -=-=-= Paid Plans accrue rollovers from both Unused Standard Prints, and from the OverPrint counter =-=-=- ##}
+            {% if states('sensor.hp_printer_pages_overprint')|int > 0 and (states('sensor.hp_printer_pages_overprint')|int % states('input_number.hp_printer_pages_overprint_block_size')|int) > 0 %}
+            {## -=-=-= If the OverPrint is in use, both the standard and rollover pages have been exhausted =-=-=- ##}
+            {{ states('input_number.hp_printer_pages_overprint_block_size')|int - (states('sensor.hp_printer_pages_overprint')|int % states('input_number.hp_printer_pages_overprint_block_size')|int) }}
+            {% elif states('sensor.hp_printer_pages_total_remaining')|int > states('input_number.hp_printer_pages_rollover_monthly_max')|int %}
+            {## -=-=-= The OverPrint is not in use, so the sum of the Unused Standard Pages plus the Unused Rollover get carried over, subject to the Max Rollover Allowance =-=-=- ##}
+            {{ states('input_number.hp_printer_pages_rollover_monthly_max')|int }}
+            {% else %}
+            {{ states('sensor.hp_printer_pages_total_remaining')|int }}
+            {% endif %}
+            {% endif %}"
+
+      - service: input_number.set_value
+        entity_id: input_number.hp_printer_pages_printed_at_month_start
+        data_template:
+          value: "{{ states('sensor.hp_printer_pages_total_printed') }}"
+
+      - service: input_datetime.set_datetime
+        entity_id: input_datetime.hp_printer_this_period_start_date
+        data_template:
+          date: "{{ states('sensor.date') }}"
+
+
+  #
+  # Alert when free pages are running low
+  #
+  # Alert when overprinted
+  #
+  - id: "printer_page_and_cost_notification"
+    alias: "Printer - Pages and Costs Notification"
+    description: >-
+      Stuur een melding als de HP OfficeJet 8022 Total Pages count is lager dan de
+      aangegeven waarde in de 
+      'input_number.hp_printer_pages_total_remaining_notification' entiteit, of als
+      het aantal gratis paginas is overschreden.
+
+    trigger:
+      - platform: template
+        value_template: >-
+          {% if
+          states('sensor.hp_printer_pages_total_remaining')|int ==
+          states('input_number.hp_printer_pages_total_remaining_notification')|int
+          %}
+
+          true
+
+          {% endif %}
+        id: pages_low
+
+      - platform: state
+        entity_id: sensor.hp_printer_pages_overprint_cost
+        id: pages_overprint
+        not_from:
+          - "unknown"
+          - "unavailable"
+          - "Onbekend"
+
+    action:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: pages_low
+            sequence:
+              - service: notify.rick_android
+                data:
+                  message: >-
+                    Aantal Pagina's Resterend voor deze Maand is 10 of minder. Print
+                    minder om extra kosten te verkomen.
+                  title: "Printer - Minder dan 10 Pagina's resterend"
+                  data:
+                    channel: "Printer"
+                    clickAction: "/m-lovelace/info"
+
+          - conditions:
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id: pages_overprint
+                  - condition: numeric_state
+                    entity_id: sensor.hp_printer_pages_overprint
+                    above: 0
+            sequence:
+              - service: notify.all_phones
+                data:
+                  title: "Printer - Aantal Maandelijkse pagina's Overschreden"
+                  message: >-
+                    Aantal Pagina's voor deze Maand is overschreden, huidige extra
+                    kosten zijn € {{ states('sensor.hp_printer_pages_overprint_cost') }},-.
+                    Nog {{ states('sensor.hp_printer_pages_overprint_remaining') }}
+                    pagina's voordat er  weer € 1,- bijkomt. Print met mate.
+                  data:
+                    channel: "Printer"
+                    clickAction: "/m-lovelace/info"
+
